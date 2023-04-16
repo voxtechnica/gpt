@@ -121,7 +121,7 @@ func ReadCSVTable(path string) (*Table, error) {
 	for i, name := range names {
 		name = strings.TrimSpace(name)
 		if name == "" {
-			name = fmt.Sprintf("column-%d", i+1)
+			name = fmt.Sprintf("column%d", i+1)
 		}
 		if _, ok := index[name]; ok {
 			return table, fmt.Errorf("read csv file %s header: duplicate column name %s", path, name)
@@ -144,7 +144,7 @@ func ReadCSVTable(path string) (*Table, error) {
 		// Add new columns, not found in the header:
 		if len(row) > len(table.FieldNames) {
 			for i := len(table.FieldNames); i < len(row); i++ {
-				name := fmt.Sprintf("column-%d", i+1)
+				name := fmt.Sprintf("column%d", i+1)
 				index[name] = i
 				table.FieldNames = append(table.FieldNames, name)
 			}
@@ -166,6 +166,45 @@ func ReadCSVTable(path string) (*Table, error) {
 	}
 
 	return table, nil
+}
+
+// ReadCSVFields reads a map of key/value pairs from a specified CSV file.
+// path is the path to the CSV file (optional). If empty, an empty map is returned.
+// keyField is the field name of an key column (required).
+// valuefield is the field name of a value column (required).
+func ReadCSVFields(path, keyField, valueField string) (map[string]string, error) {
+	var fields = map[string]string{}
+	// Validate the parameters:
+	if len(path) == 0 {
+		return fields, nil
+	}
+	if len(keyField) == 0 {
+		return fields, fmt.Errorf("read csv fields: key field name is required")
+	}
+	if len(valueField) == 0 {
+		return fields, fmt.Errorf("read csv fields: value field name is required")
+	}
+	// Load the CSV file:
+	table, err := ReadCSVTable(path)
+	if err != nil {
+		return fields, fmt.Errorf("read csv fields: %w", err)
+	}
+	// Validate the field names:
+	if !table.HasField(keyField) {
+		return fields, fmt.Errorf("read csv fields: key field %s not found in file %s", keyField, path)
+	}
+	if !table.HasField(valueField) {
+		return fields, fmt.Errorf("read csv fields: value field %s not found in file %s", valueField, path)
+	}
+	// Read the key/value pairs:
+	for _, record := range table.Records {
+		key := CleanText(record[keyField])
+		value := CleanText(record[valueField])
+		if len(key) > 0 && len(value) > 0 {
+			fields[key] = value
+		}
+	}
+	return fields, nil
 }
 
 // ReadCSVField reads a specified field from a specified row in a CSV file.

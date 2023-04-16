@@ -67,7 +67,7 @@ func NewChatCommand(apiClient *openai.Client, root *cobra.Command) *ChatCommand 
 	c.randomCmd.Flags().BoolP("raw", "r", false, "Raw OpenAI Response?")
 	c.randomCmd.Flags().BoolP("verbose", "v", false, "Verbose output?")
 	c.randomCmd.Flags().StringP("score-select", "S", "last", "Score selection: first | last | all | none")
-	c.randomCmd.Flags().StringP("question-id", "Q", "", "Question ID (optional, name=value)")
+	c.randomCmd.Flags().StringP("question-id", "Q", "", "Question ID (optional, name | name=value)")
 	c.randomCmd.Flags().StringP("question-field", "q", "", "Question field name (optional)")
 	c.randomCmd.Flags().StringP("answer-id", "A", "", "Answer ID (optional, name=value)")
 	c.randomCmd.Flags().StringP("answer-field", "a", "", "Answer field name (required)")
@@ -86,7 +86,7 @@ func NewChatCommand(apiClient *openai.Client, root *cobra.Command) *ChatCommand 
 	c.batchCmd.Flags().IntP("batch-size", "b", 20, "Batch size for concurrent requests")
 	c.batchCmd.Flags().StringP("score-field", "s", "score", "Score field name")
 	c.batchCmd.Flags().StringP("score-select", "S", "last", "Score selection: first | last | all | none")
-	c.batchCmd.Flags().StringP("question-id", "Q", "", "Question ID (optional, name=value)")
+	c.batchCmd.Flags().StringP("question-id", "Q", "", "Question ID (optional, name | name=value)")
 	c.batchCmd.Flags().StringP("question-field", "q", "", "Question field name (optional)")
 	c.batchCmd.Flags().StringP("answer-field", "a", "", "Answer field name (required)")
 	c.batchCmd.MarkFlagRequired("answer-field")
@@ -150,21 +150,66 @@ func (c *ChatCommand) random(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid score selection (expect first, last, all, or none): %s", scoreSelect)
 	}
 
-	// Fetch the optional question:
-	question, err := psy.ReadCSVField(questionPath, questionID, questionField)
+	// Read the answers:
+	answers, err := psy.ReadCSVTable(answerPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("answer file: %w", err)
+	}
+	if len(answerField) == 0 {
+		return fmt.Errorf("answer field is required")
+	}
+	if !answers.HasField(answerField) {
+		return fmt.Errorf("answer field %s not found in file %s", answerField, answerPath)
 	}
 
-	// Fetch an answer, either specified or randomly-selected:
-	var answer string
+	// Select an answer:
+	var record psy.Record
 	if len(answerID) > 0 {
-		answer, err = psy.ReadCSVField(answerPath, answerID, answerField)
+		// Select the specified answer by ID:
+		nameValue := strings.Split(answerID, "=")
+		if len(nameValue) != 2 {
+			return fmt.Errorf("answer ID %s is not a name=value pair", answerID)
+		}
+		if !answers.HasField(nameValue[0]) {
+			return fmt.Errorf("answer ID field %s not found in file %s", nameValue[0], answerPath)
+		}
+		// Read the specified record:
+		record = answers.Record(nameValue[0], nameValue[1])
+		if record == nil {
+			return fmt.Errorf("answer %s not found in file %s", answerID, answerPath)
+		}
 	} else {
-		answer, err = psy.RandomCSVField(answerPath, answerField)
+		// Select a random answer:
+		record = answers.Random()
 	}
-	if err != nil {
-		return fmt.Errorf("answer: %w", err)
+	answer := psy.CleanText(record[answerField])
+	if len(answer) == 0 {
+		return fmt.Errorf("answer: selected field %s is empty in file %s", answerField, answerPath)
+	}
+
+	// Read the question(s):
+	var question string
+	if len(questionPath) > 0 {
+		if strings.Contains(questionID, "=") {
+			// Lookup the question by ID:
+			question, err = psy.ReadCSVField(questionPath, questionID, questionField)
+			if err != nil {
+				return fmt.Errorf("read question: %w", err)
+			}
+		} else {
+			// Lookup the question specified in the answer record:
+			var questions map[string]string
+			questions, err = psy.ReadCSVFields(questionPath, questionID, questionField)
+			if err != nil {
+				return fmt.Errorf("read questions: %w", err)
+			}
+			qid := record[questionID]
+			q, ok := questions[qid]
+			if !ok {
+				return fmt.Errorf("question ID %s not found in file %s", qid, questionPath)
+			}
+			question = q
+		}
 	}
 
 	// Prepare the prompt:
@@ -258,6 +303,9 @@ func (c *ChatCommand) random(cmd *cobra.Command, args []string) error {
 
 // batch processes chat-completions for all answers in the specified file.
 // The results (answers plus scores) are written to the specified CSV file.
+// If the question-id is just 'name' instead of 'name=value', then that field
+// name is used in both the question file and the answer file to look up the
+// question for each answer.
 func (c *ChatCommand) batch(cmd *cobra.Command, args []string) error {
 	startTime := time.Now()
 	ctx := context.Background()
@@ -292,10 +340,25 @@ func (c *ChatCommand) batch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("prompt file: %w", err)
 	}
 
-	// Fetch the optional question:
-	question, err := psy.ReadCSVField(questionPath, questionID, questionField)
-	if err != nil {
-		return err
+	// Read the question(s):
+	var questions map[string]string
+	var question string
+	var lookupQuestion bool
+	if len(questionPath) > 0 {
+		if strings.Contains(questionID, "=") {
+			// Lookup the question by ID:
+			question, err = psy.ReadCSVField(questionPath, questionID, questionField)
+			if err != nil {
+				return fmt.Errorf("read question: %w", err)
+			}
+		} else {
+			// Read all the questions:
+			lookupQuestion = true
+			questions, err = psy.ReadCSVFields(questionPath, questionID, questionField)
+			if err != nil {
+				return fmt.Errorf("read questions: %w", err)
+			}
+		}
 	}
 
 	// Fetch the table of answers:
@@ -305,6 +368,22 @@ func (c *ChatCommand) batch(cmd *cobra.Command, args []string) error {
 	}
 	if !answers.HasField(answerField) {
 		return fmt.Errorf("answer field %s not found in %s", answerField, answerPath)
+	}
+	if lookupQuestion {
+		if !answers.HasField(questionID) {
+			return fmt.Errorf("question ID field %s not found in %s", questionID, answerPath)
+		}
+		// Validate the question IDs in the answer file:
+		unknownQuestions := make([]string, 0)
+		for _, a := range answers.Records {
+			qid := a[questionID]
+			if _, ok := questions[qid]; !ok {
+				unknownQuestions = append(unknownQuestions, qid)
+			}
+		}
+		if len(unknownQuestions) > 0 {
+			return fmt.Errorf("unknown question IDs in answer file %s: %s", answerPath, strings.Join(unknownQuestions, ", "))
+		}
 	}
 	answers.AddField("chatID")
 	answers.AddField("completion")
@@ -326,8 +405,16 @@ func (c *ChatCommand) batch(cmd *cobra.Command, args []string) error {
 		chatID := tuid.NewID().String()
 		a["chatID"] = chatID
 		// Prepare the prompt from the template:
-		prompt := strings.ReplaceAll(template, "{{question}}", question)
-		prompt = strings.ReplaceAll(prompt, "{{answer}}", a[answerField])
+		var q string
+		if lookupQuestion {
+			qid := a[questionID]
+			q = questions[qid]
+		} else {
+			q = question
+		}
+		answer := psy.CleanText(a[answerField])
+		prompt := strings.ReplaceAll(template, "{{question}}", q)
+		prompt = strings.ReplaceAll(prompt, "{{answer}}", answer)
 		// Generate the chat request:
 		chat := psy.NewChat(chatID, system, prompt, c.model, c.temperature, c.maxTokens)
 		chats = append(chats, chat)

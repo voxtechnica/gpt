@@ -82,3 +82,78 @@ Listing the models is a convenient way to verify that you can access the OpenAI 
 as expected.
 
 Also, you can explore the [CLI documentation](/docs/gpt.md).
+
+## Working with Text and CSV Files
+
+Some of the commands (e.g. `chat random` and `chat batch`) use CSV files for data
+inputs and outputs. The first line of these files is expected to be column labels,
+and they need to be unique. If the column label is missing, it gets labeled as
+"columnX" where X is the column number. The subsequent lines of the CSV file are
+individual rows of data.
+
+When you're using the `chat random` and `chat batch` commands, you can refer to
+different fields in your dataset by using the column labels. They're case-sensitive,
+and ideally, have no spaces. Good examples are `id`, `question`, and `answer`.
+You can include extra columns in your CSV files, and they're either ignored or
+reproduced faithfully in your output file.
+
+If you want to refer to a specific field in a specific row of your dataset, you'll
+be supplying two arguments: the name and value of an "id" field, and the name of
+the field that contains the value you're referring to. The "id" field will be a
+name=value pair, such as `pid=61324`.
+
+## Using the chat Command
+
+The [chat command](/docs/gpt_chat.md) has three subcommands: `prompt`, `random`,
+and `batch`. The first two commands will typically be used when engineering an
+effective prompt for use with a batch of data. The `prompt` command works with
+just two text files: a prompt file and an optional system file. These files are
+plain UTF-8 text. The system file can be used to inform GPT of its identity and
+the role it is expected to play (e.g. [system.txt](/examples/system.txt)).
+The prompt file then provides instructions for GPT.
+The [limerick.txt](/examples/limerick.txt) file provides a simple example, and
+the [prompt.txt](/examples/prompt.txt) file provides a more complex example.
+
+Note that for the `random` and `batch` commands, the prompt file can contain
+two template substitution variables: `{{question}}` and `{{answer}}`. These
+will be replaced with the actual text of a provided (optional) question and
+the (required) answer.
+
+So, the `prompt` command is used for simple prompts, and when you're ready to
+start experimenting question(s) and answers in your CSV dataset, you can use
+the `random` command to test your prompt with different values. Once you're
+happy with the results you're seeing, you can used the `batch` command to
+process the entire dataset. If you want to finesse the prompt with a specific
+answer, you can use the `--answer-id` flag with the `random` command to force
+it to select the specified answer (which, of course, is not random).
+
+The `random` and `batch` commands can also parse "scores" (numbers) from the
+GPT response text. The `--score-select` flag indicates whether you'd like the
+first number found in the text, the last number, all the numbers, or none of
+the numbers (i.e. don't bother parsing scores). You'll probably just want the
+last number, and that's the default score selection.
+
+When you use the `batch` command, the output CSV file will contain all the
+data provided in your input answer file, along with a few new columns. The
+`chatID` column will contain a unique ID used with GPT, and the `completion`
+column will contain the exact text of the GPT response. If you're also
+parsing score(s) from the GPT response, those column(s) will be included too.
+The default name for a score column is `score` or `scoreX` where X is a number
+indicating the position of the score in the list, if multiple scores are being
+parsed from the response text. Note that you can change the name of the score
+column using the `--score-field` flag. This can be useful if you're storing the
+results from multiple runs in the same CSV file. You can just give each run a
+different score field name, reusing the output file as an input file. The new
+score columns will be appended with each run.
+
+One more tip on using questions and answers: if you have multiple questions,
+and your answer file includes answers to different questions, you can include
+a question ID column in your answers file. Then, when processing each answer,
+the system will look up the appropriate question to use for that answer in
+the questions CSV file. The question ID column name (e.g. `qid`) must be the
+same in both the questions file and the answers file. The `--question-id` flag
+controls this behavior. If you specify just a question ID field name, then it
+will be assumed that the field exists in both files. If you specify a
+`name=value` pair, then just that specific question will be used for the
+entire set of answers. Also, note that questions are optional. If all you have
+to process are "answers", then you can ignore the question bits.
