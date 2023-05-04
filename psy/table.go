@@ -3,6 +3,9 @@ package psy
 import (
 	"encoding/csv"
 	"fmt"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 	"io"
 	"math/rand"
 	"os"
@@ -43,7 +46,8 @@ func (t *Table) HasField(name string) bool {
 
 // AddField appends a new field/column name to the Table if it doesn't already exist.
 func (t *Table) AddField(name string) {
-	if !t.HasField(name) {
+	name = strings.TrimSpace(name)
+	if name != "" && !t.HasField(name) {
 		t.FieldNames = append(t.FieldNames, name)
 	}
 }
@@ -83,7 +87,7 @@ func (t *Table) WriteCSV(path string) error {
 
 	// Write the remaining rows:
 	for _, record := range t.Records {
-		row := []string{}
+		var row []string
 		for _, name := range t.FieldNames {
 			row = append(row, record[name])
 		}
@@ -108,7 +112,8 @@ func ReadCSVTable(path string) (*Table, error) {
 		return table, fmt.Errorf("read csv file %s: %w", path, err)
 	}
 	defer f.Close()
-	r := csv.NewReader(f)
+	bomRemover := unicode.BOMOverride(encoding.Nop.NewDecoder())
+	r := csv.NewReader(transform.NewReader(f, bomRemover))
 
 	// Read the field/column names from the first row:
 	names, err := r.Read()
@@ -170,8 +175,8 @@ func ReadCSVTable(path string) (*Table, error) {
 
 // ReadCSVFields reads a map of key/value pairs from a specified CSV file.
 // path is the path to the CSV file (optional). If empty, an empty map is returned.
-// keyField is the field name of an key column (required).
-// valuefield is the field name of a value column (required).
+// keyField is the field name of a key column (required).
+// valueField is the field name of a value column (required).
 func ReadCSVFields(path, keyField, valueField string) (map[string]string, error) {
 	var fields = map[string]string{}
 	// Validate the parameters:
@@ -273,7 +278,7 @@ func RandomCSVField(path, field string) (string, error) {
 	return text, nil
 }
 
-// Read a text file into a string, using the file cache for performance.
+// ReadTextFile returns specified text file as a string, using the file cache for performance.
 func ReadTextFile(path string) (string, error) {
 	// If the path is empty, return an empty string:
 	if len(path) == 0 {
@@ -289,8 +294,9 @@ func ReadTextFile(path string) (string, error) {
 		return "", fmt.Errorf("read text file: open file %s: %w", path, err)
 	}
 	defer f.Close()
-	// Read the file:
-	b, err := io.ReadAll(f)
+	// Read the file, stripping out a BOM character if present:
+	bomRemover := unicode.BOMOverride(encoding.Nop.NewDecoder())
+	b, err := io.ReadAll(transform.NewReader(f, bomRemover))
 	if err != nil {
 		return "", fmt.Errorf("read text file: read file %s: %w", path, err)
 	}
