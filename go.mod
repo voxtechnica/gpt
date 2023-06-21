@@ -1,4 +1,4 @@
-module gpt
+module github.com/voxtechnica/gpt
 
 go 1.20
 
