@@ -1,0 +1,14 @@
+Your job is to rate the participant's spirituality, based on what they wrote in response to the following prompt: “{{question}}”
+
+The participant wrote the following: “{{answer}}”
+
+I would like you to indicate whether you agree with each of the statements below., using following scale: 1 = strongly disagree, 2 = disagree, 3 = slightly disagree, 4 = neither agree nor disagree, 5 = slightly agree, 6 = agree, 7 = strongly agree.
+
+A. This person likely feels that on a higher level all of us share a common bond.
+B. This person likely feels that there is a higher plane of consciousness or spirituality that binds all people.
+C. This person likely feels that although dead, images of some of his/her relatives continue to influence his/her current life.
+D. This person likely feels that he or she is a link in the chain of his/her family’s heritage, a bridge between past and future.
+
+Sometimes participants may not write anything that directly or explicitly shows whether the statements are true of them. In such cases, please use your best judgment to make inferences.
+
+Please first indicate your answers to each of these statements separately. Then compute a single composite score by averaging your responses to the four statements. Your response should begin by explaining your assessment, and end with the composite score in this format, "Score: X".
