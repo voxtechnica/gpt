@@ -21,11 +21,8 @@ type File struct {
 	// CreatedAt is a creation timestamp in epoch seconds, e.g. 1669599635.
 	CreatedAt int64 `json:"created_at"`
 
-	// Status is the status of the file, e.g. "uploaded" or "processed".
-	Status string `json:"status"`
-
-	// StatusDetails provides additional information about the status.
-	StatusDetails interface{} `json:"status_details,omitempty"`
+	// Status is the status of the file: "uploaded", "processed", "error".
+	Status string `json:"status,omitempty"`
 }
 
 // FileList is a list of files that belong to the user's organization.
