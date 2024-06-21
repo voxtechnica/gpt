@@ -1,0 +1,5 @@
+Participants were asked to write at least three sentences explaining the meaning of a phrase.  
+
+This participant wrote: "{{answer}}"
+
+Is this response incoherent, nonsensical, or so short as to be uninterpretable? Respond with a one-sentence explanation followed by a 0 if no or a 1 if yes.

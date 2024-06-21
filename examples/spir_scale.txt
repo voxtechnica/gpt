@@ -1,4 +1,4 @@
-Your job is to rate the participant's spirituality, based on what they wrote in response to the following prompt: “{{question}}”
+Your job is to rate the participant's spirituality, based on what they wrote in response to the following prompt: "Imagine that you have a dream that your far-away loved one (e.g. grandmother, grandfather, parent, close friend, etc.) unexpectedly visits to say they love you and to impart life wisdom. You wake up to learn that they died the previous night. Please tell us how and why you think this happens."
 
 The participant wrote the following: “{{answer}}”
 

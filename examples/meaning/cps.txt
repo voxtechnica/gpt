@@ -1,0 +1,8 @@
+Here is a piece of text: '{{answer}}'
+
+To what extent does are the following ideas explicitly reflected in this text? 
+A. coherence, comprehensibility, interpretation, or understanding
+B. purpose, direction, goals, aims, or a reason for being
+C. significance, value, mattering, importance, or impact
+
+Respond with a one-sentence explanation for each concept, followed by "Score: X" where X is a number between 0 and 5 (0 indicates "not at all" and 5 indicates "completely"). 
