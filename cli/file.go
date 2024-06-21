@@ -44,6 +44,7 @@ func NewFileCommand(apiClient *openai.Client, root *cobra.Command) *FileCommand 
 		Long:  "List metadata of available files",
 		RunE:  c.list,
 	}
+	c.listCmd.Flags().StringP("purpose", "p", "", "File Purpose")
 	c.listCmd.Flags().BoolP("verbose", "v", false, "Verbose? (full JSON)")
 	c.listCmd.Flags().BoolP("raw", "r", false, "Raw OpenAI Response?")
 	c.baseCmd.AddCommand(c.listCmd)
@@ -74,7 +75,7 @@ func NewFileCommand(apiClient *openai.Client, root *cobra.Command) *FileCommand 
 	c.downloadCmd = &cobra.Command{
 		Use:   "download <fileID>",
 		Short: "Download a file",
-		Long:  "Download a file",
+		Long:  "Download a file to the specified path/name (default: OpenAI file name).",
 		Args:  cobra.ExactArgs(1),
 		RunE:  c.download,
 	}
@@ -98,11 +99,12 @@ func NewFileCommand(apiClient *openai.Client, root *cobra.Command) *FileCommand 
 // list the available files.
 func (c *FileCommand) list(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
+	purpose := cmd.Flag("purpose").Value.String()
 
 	// Retrieve the raw JSON response:
 	raw, _ := cmd.Flags().GetBool("raw")
 	if raw {
-		body, err := c.apiClient.ListFilesRaw(ctx)
+		body, err := c.apiClient.ListFilesRaw(ctx, purpose)
 		if body != nil {
 			fmt.Print(string(body))
 		}
@@ -113,7 +115,7 @@ func (c *FileCommand) list(cmd *cobra.Command, args []string) error {
 	}
 
 	// Retrieve the files:
-	files, err := c.apiClient.ListFiles(ctx)
+	files, err := c.apiClient.ListFiles(ctx, purpose)
 	if err != nil {
 		return err
 	}
@@ -212,6 +214,7 @@ func (c *FileCommand) download(cmd *cobra.Command, args []string) error {
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("download file %s: %w", fileID, err)
 	}
+	fmt.Println("Downloaded file:", path)
 	return nil
 }
 

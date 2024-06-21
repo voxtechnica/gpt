@@ -42,7 +42,7 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 OPENAI_ORG_ID=org-xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-* Build the applications for running in your local development environment:
+* Build the application for running in your local development environment:
 
 ```bash
 make build
@@ -76,6 +76,10 @@ the `-h` or `--help` flags with the executable application. For example:
 ./gpt model -h
 ./gpt model list -h
 ./gpt model read -h
+./gpt chat -h
+./gpt chat prompt -h
+./gpt chat random -h
+./gpt chat batch -h
 ```
 
 Listing the models is a convenient way to verify that you can access the OpenAI API
@@ -112,7 +116,8 @@ plain UTF-8 text. The system file can be used to inform GPT of its identity and
 the role it is expected to play (e.g. [system.txt](/examples/system.txt)).
 The prompt file then provides instructions for GPT.
 The [limerick.txt](/examples/limerick.txt) file provides a simple example, and
-the [prompt.txt](/examples/prompt.txt) file provides a more complex example.
+the [spir_definition.txt](/examples/spir_definition.txt) file provides a more
+complex example.
 
 Note that for the `random` and `batch` commands, the prompt file can contain
 two template substitution variables: `{{question}}` and `{{answer}}`. These
@@ -120,8 +125,8 @@ will be replaced with the actual text of a provided (optional) question and
 the (required) answer.
 
 So, the `prompt` command is used for simple prompts, and when you're ready to
-start experimenting question(s) and answers in your CSV dataset, you can use
-the `random` command to test your prompt with different values. Once you're
+start experimenting with question(s) and answers in your CSV dataset, you can
+use the `random` command to test your prompt with different values. Once you're
 happy with the results you're seeing, you can used the `batch` command to
 process the entire dataset. If you want to finesse the prompt with a specific
 answer, you can use the `--answer-id` flag with the `random` command to force

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TuneCommand is the command for fine-tuning models.
+// TuneCommand is the command for managing fine-tuning jobs.
 type TuneCommand struct {
 	apiClient *openai.Client
 	rootCmd   *cobra.Command
@@ -20,7 +20,6 @@ type TuneCommand struct {
 	eventsCmd *cobra.Command
 	createCmd *cobra.Command
 	cancelCmd *cobra.Command
-	deleteCmd *cobra.Command
 	raw       bool
 }
 
@@ -33,8 +32,8 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 	}
 	c.baseCmd = &cobra.Command{
 		Use:   "tune",
-		Short: "Manage fine-tuned models",
-		Long:  "Manage fine-tuned models.",
+		Short: "Manage fine-tuning jobs",
+		Long:  "Manage fine-tuning jobs.",
 	}
 	c.baseCmd.PersistentFlags().BoolVarP(&c.raw, "raw", "r", false, "Raw OpenAI Response?")
 	c.rootCmd.AddCommand(c.baseCmd)
@@ -42,8 +41,8 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 	// List Command
 	c.listCmd = &cobra.Command{
 		Use:   "list",
-		Short: "List fine-tuned models",
-		Long:  "List metadata of available fine-tuned models.",
+		Short: "List fine-tuning jobs",
+		Long:  "List metadata of available fine-tuning jobs.",
 		RunE:  c.list,
 	}
 	c.listCmd.Flags().BoolP("verbose", "v", false, "Verbose? (full JSON)")
@@ -51,9 +50,9 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 
 	// Read Command
 	c.readCmd = &cobra.Command{
-		Use:   "read <tuneID> [tuneID]...",
-		Short: "Read specified fine-tuned model(s)",
-		Long:  "Read the metadata about one or more fine-tuned models, specified by ID.",
+		Use:   "read <jobID> [jobID]...",
+		Short: "Read specified fine-tuning job(s)",
+		Long:  "Read the metadata about one or more fine-tuning jobs, specified by ID.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  c.read,
 	}
@@ -61,9 +60,9 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 
 	// Events Command
 	c.eventsCmd = &cobra.Command{
-		Use:   "events <tuneID>",
-		Short: "List events for a fine-tuned model",
-		Long:  "List the event history for a specified fine-tuned model.",
+		Use:   "events <jobID>",
+		Short: "List events for a fine-tuning job",
+		Long:  "List the event history for a specified fine-tuning job.",
 		Args:  cobra.ExactArgs(1),
 		RunE:  c.events,
 	}
@@ -73,34 +72,24 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 	// Create Command
 	c.createCmd = &cobra.Command{
 		Use:   "create <trainingFileID> [validationFileID]",
-		Short: "Create a fine-tuned model",
-		Long:  "Create a fine-tuned model from the provided training file ID.",
+		Short: "Create a fine-tuning job",
+		Long:  "Create a fine-tuning job using the provided file ID(s).",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  c.create,
 	}
-	c.createCmd.Flags().StringP("base", "b", "curie", "Base model (default: curie)")
-	c.createCmd.Flags().StringP("suffix", "s", "", "Name suffix of the fine-tuned model")
+	c.createCmd.Flags().StringP("base", "b", "gpt-3.5-turbo", "Base model (default: gpt-3.5-turbo)")
+	c.createCmd.Flags().StringP("suffix", "s", "", "Name suffix for the fine-tuned model")
 	c.baseCmd.AddCommand(c.createCmd)
 
 	// Cancel Command
 	c.cancelCmd = &cobra.Command{
-		Use:   "cancel <tuneID> [tuneID]...",
-		Short: "Cancel specified fine-tuned model(s)",
-		Long:  "Cancel one or more fine-tuned models, specified by ID.",
+		Use:   "cancel <jobID> [jobID]...",
+		Short: "Cancel specified fine-tuning job(s)",
+		Long:  "Cancel one or more fine-tuning jobs, specified by ID.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  c.cancel,
 	}
 	c.baseCmd.AddCommand(c.cancelCmd)
-
-	// Delete Command
-	c.deleteCmd = &cobra.Command{
-		Use:   "delete <tuneID> [tuneID]...",
-		Short: "Delete specified fine-tuned model(s)",
-		Long:  "Delete one or more fine-tuned models, specified by ID.",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  c.delete,
-	}
-	c.baseCmd.AddCommand(c.deleteCmd)
 
 	return c
 }
@@ -301,28 +290,6 @@ func (c *TuneCommand) cancel(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("error marshalling FineTune JSON: %w", err)
 			}
 			fmt.Println(string(j))
-		}
-	}
-	return nil
-}
-
-// delete the specified fine-tuned model(s).
-func (c *TuneCommand) delete(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
-	for _, id := range args {
-		if c.raw {
-			body, err := c.apiClient.DeleteFineTuneRaw(ctx, id)
-			if body != nil {
-				fmt.Print(string(body))
-			}
-			if err != nil {
-				return err
-			}
-		} else {
-			err := c.apiClient.DeleteFineTune(ctx, id)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil

@@ -16,7 +16,6 @@ type RootCommand struct {
 	aboutCmd  *cobra.Command
 	docCmd    *cobra.Command
 	chatCmd   *ChatCommand
-	textCmd   *TextCommand
 	fileCmd   *FileCommand
 	modelCmd  *ModelCommand
 	tuneCmd   *TuneCommand
@@ -69,7 +68,6 @@ func NewRootCommand(apiClient *openai.Client) *RootCommand {
 
 	// Other Commands
 	c.chatCmd = NewChatCommand(apiClient, c.rootCmd)
-	c.textCmd = NewTextCommand(apiClient, c.rootCmd)
 	c.fileCmd = NewFileCommand(apiClient, c.rootCmd)
 	c.modelCmd = NewModelCommand(apiClient, c.rootCmd)
 	c.tuneCmd = NewTuneCommand(apiClient, c.rootCmd)

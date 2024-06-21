@@ -6,12 +6,15 @@ import (
 	"strings"
 )
 
-// ChatRequest represents a request structure for chat completion API.
+// ChatRequest represents a request structure for the chat completion API.
+// This implementation is focused on producing text completions for a conversation.
+// Note that the API also supports function calling and JSON responses, which
+// require additional fields, not provided here.
 type ChatRequest struct {
-	// Model ID to use for completion. Example: "gpt-3.5-turbo"
+	// Model ID to use for completion. Example: "gpt-3.5-turbo" (required field)
 	Model string `json:"model"`
 
-	// Messages is a list of messages in the conversation.
+	// Messages is a list of messages in the conversation (required field)
 	Messages []Message `json:"messages"`
 
 	// Temperature is the sampling temperature. Higher values result in more
@@ -31,16 +34,8 @@ type ChatRequest struct {
 	// N is the number of results to return. The default is 1.
 	N int `json:"n,omitempty"`
 
-	// Stream is whether to stream back partial progress. The default is false.
-	Stream bool `json:"stream,omitempty"`
-
-	// Stop is a list of up to 4 tokens that will cause the API to stop
-	// generating further tokens. The default is an empty list. The returned
-	// text will not contain the stop sequence. Example: ["\n\n###\n\n"]
-	Stop []string `json:"stop,omitempty"`
-
-	// MaxTokens is the maximum number of tokens to generate. The default is
-	// "infinity", but the actual default maximum is (4096 - prompt tokens).
+	// MaxTokens is the maximum number of tokens to generate.
+	// The default is "infinity" (limited only by the context window size).
 	MaxTokens int `json:"max_tokens,omitempty"`
 
 	// PresencePenalty is a floating point value between -2.0 and 2.0 that
@@ -52,11 +47,6 @@ type ChatRequest struct {
 	// penalizes new tokens based on their existing frequency in the text so
 	// far. The default is 0.0.
 	FrequencyPenalty float32 `json:"frequency_penalty,omitempty"`
-
-	// LogitBias is a dictionary of token to bias. Each token is associated
-	// with an associated bias value ranging from -100 to 100 that biases the
-	// log probabilities of that token. The default is an empty dictionary.
-	LogitBias map[string]int `json:"logit_bias,omitempty"`
 
 	// User is a unique identifier representing your end-user, which can help
 	// OpenAI to monitor and detect abuse. The default is an empty string.
@@ -85,12 +75,12 @@ func (c *ChatRequest) String() string {
 // ChatResponse provides a predicted text completion in response to a provided
 // prompt and other parameters.
 type ChatResponse struct {
-	ID      string          `json:"id"`      // eg. "chatcmpl-6p9XYPYSTTRi0xEviKjjilqrWU2Ve"
-	Object  string          `json:"object"`  // eg. "chat.completion"
-	Created int64           `json:"created"` // epoch seconds, eg. 1677966478
-	Model   string          `json:"model"`   // eg. "gpt-3.5-turbo"
-	Usage   Usage           `json:"usage"`
-	Choices []MessageChoice `json:"choices"`
+	ID        string          `json:"id"`      // eg. "chatcmpl-6p9XYPYSTTRi0xEviKjjilqrWU2Ve"
+	Object    string          `json:"object"`  // eg. "chat.completion"
+	CreatedAt int64           `json:"created"` // epoch seconds, eg. 1677966478
+	Model     string          `json:"model"`   // eg. "gpt-3.5-turbo"
+	Usage     Usage           `json:"usage"`
+	Choices   []MessageChoice `json:"choices"`
 }
 
 // String provides a simple text display of the ChatResponse intended for console output.
@@ -129,9 +119,22 @@ type MessageChoice struct {
 type Message struct {
 	Role    Role   `json:"role"`
 	Content string `json:"content"`
+	Name    string `json:"name,omitempty"`
 }
 
 // String provides a simple text display of the Message intended for console output.
 func (m *Message) String() string {
 	return fmt.Sprintf("--------------------\n%s:\n%s\n", m.Role, strings.TrimSpace(m.Content))
+}
+
+// Usage provides the total token usage per request to OpenAI.
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
+	CompletionTokens int `json:"completion_tokens,omitempty"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
+}
+
+// String returns a string representation of Usage.
+func (u Usage) String() string {
+	return fmt.Sprintf("prompt=%d completion=%d total=%d", u.PromptTokens, u.CompletionTokens, u.TotalTokens)
 }

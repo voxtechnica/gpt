@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gpt/openai"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -16,6 +17,7 @@ type ModelCommand struct {
 	baseCmd   *cobra.Command
 	listCmd   *cobra.Command
 	readCmd   *cobra.Command
+	deleteCmd *cobra.Command
 	raw       bool
 }
 
@@ -54,6 +56,16 @@ func NewModelCommand(apiClient *openai.Client, root *cobra.Command) *ModelComman
 	}
 	c.baseCmd.AddCommand(c.readCmd)
 
+	// Delete Command
+	c.deleteCmd = &cobra.Command{
+		Use:   "delete <modelID> [modelID]...",
+		Short: "Delete specified model(s)",
+		Long:  "Delete one or more models, specified by ID.",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  c.delete,
+	}
+	c.baseCmd.AddCommand(c.deleteCmd)
+
 	return c
 }
 
@@ -89,7 +101,8 @@ func (c *ModelCommand) list(cmd *cobra.Command, args []string) error {
 		fmt.Println(string(j))
 	} else {
 		for _, model := range models {
-			fmt.Println(model.ID)
+			t := time.Unix(model.CreatedAt, 0)
+			fmt.Println(t.Format(time.DateOnly), model.ID)
 		}
 	}
 	return nil
@@ -124,6 +137,25 @@ func (c *ModelCommand) read(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error marshalling JSON model: %w", err)
 		}
 		fmt.Println(string(j))
+	}
+	return nil
+}
+
+// delete the specified model(s).
+func (c *ModelCommand) delete(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+
+	// Delete the model(s):
+	for _, modelID := range args {
+		body, err := c.apiClient.DeleteModelRaw(ctx, modelID)
+		if err != nil {
+			return err
+		}
+		if body != nil && c.raw {
+			fmt.Print(string(body))
+		} else {
+			fmt.Println("Deleted:", modelID)
+		}
 	}
 	return nil
 }
