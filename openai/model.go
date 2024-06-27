@@ -2,12 +2,11 @@ package openai
 
 // CommonModels is a collection of commonly-used OpenAI models.
 var CommonModels = map[string]bool{
-	"gpt-3.5-turbo":          true,
-	"gpt-3.5-turbo-16k":      true,
-	"gpt-3.5-turbo-instruct": true,
-	"gpt-4":                  true,
-	"gpt-4-turbo":            true,
-	"gpt-4-turbo-preview":    true,
+	"gpt-3.5-turbo":     true,
+	"gpt-3.5-turbo-16k": true,
+	"gpt-4":             true,
+	"gpt-4-turbo":       true,
+	"gpt-4o":            true,
 }
 
 // Model identifies an OpenAPI model.

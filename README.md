@@ -108,38 +108,44 @@ name=value pair, such as `pid=61324`.
 
 ## Using the chat Command
 
-The [chat command](/docs/gpt_chat.md) has three subcommands: `prompt`, `random`,
-and `batch`. The first two commands will typically be used when engineering an
-effective prompt for use with a batch of data. The `prompt` command works with
-just two text files: a prompt file and an optional system file. These files are
-plain UTF-8 text. The system file can be used to inform GPT of its identity and
-the role it is expected to play (e.g. [system.txt](/examples/system.txt)).
+The [chat command](/docs/gpt_chat.md) has four subcommands: `prompt`, `random`,
+`parallel`, and `batch`. The first two commands will typically be used when
+engineering an effective prompt for use with a batch of data. The `prompt` command
+works with just two text files: a prompt file and an optional system file. These
+files are plain UTF-8 text. The system file can be used to inform GPT of its
+identity and the role it is expected to play (e.g. [system.txt](/examples/system.txt)).
 The prompt file then provides instructions for GPT.
 The [limerick.txt](/examples/limerick.txt) file provides a simple example, and
 the [spir_definition.txt](/examples/spir_definition.txt) file provides a more
 complex example.
 
-Note that for the `random` and `batch` commands, the prompt file can contain
-two template substitution variables: `{{question}}` and `{{answer}}`. These
+Note that for the `random`, `parallel`, and `batch` commands, the prompt file can
+contain two template substitution variables: `{{question}}` and `{{answer}}`. These
 will be replaced with the actual text of a provided (optional) question and
 the (required) answer.
 
 So, the `prompt` command is used for simple prompts, and when you're ready to
 start experimenting with question(s) and answers in your CSV dataset, you can
-use the `random` command to test your prompt with different values. Once you're
-happy with the results you're seeing, you can used the `batch` command to
-process the entire dataset. If you want to finesse the prompt with a specific
-answer, you can use the `--answer-id` flag with the `random` command to force
-it to select the specified answer (which, of course, is not random).
+use the `random` command to test your prompt with different values. If you want
+to finesse the prompt with a specific answer, you can use the `--answer-id` flag
+with the `random` command to force it to select the specified answer (which, of
+course, is not random).
 
-The `random` and `batch` commands can also parse "scores" (numbers) from the
-GPT response text. The `--score-select` flag indicates whether you'd like the
-first number found in the text, the last number, all the numbers, or none of
-the numbers (i.e. don't bother parsing scores). You'll probably just want the
-last number, and that's the default score selection.
+Once you're happy with the results you're seeing, you can use the `parallel` or
+`batch` commands to process the entire dataset. The `parallel` command works
+through your records in real time, sending multiple requests in parallel. The
+`batch` command generates an asynchronous batch job, wherein OpenAI manages
+the concurrency. Using `batch` is recommended, as it costs about half as much
+as the real-time requests. Also, in testing, it appears to complete very quickly.
 
-When you use the `batch` command, the output CSV file will contain all the
-data provided in your input answer file, along with a few new columns. The
+The `chat` commands can also parse "scores" (numbers) from the GPT response text.
+The `--score-select` flag indicates whether you'd like the first number found in
+the text, the last number, all the numbers, or none of the numbers (i.e. don't
+bother parsing scores). You'll probably just want the last number, and that's
+the default score selection.
+
+When you use the `parallel` or `batch` commands, the output CSV file will contain
+all the data provided in your input answer file, along with a few new columns. The
 `chatID` column will contain a unique ID used with GPT, and the `completion`
 column will contain the exact text of the GPT response. If you're also
 parsing score(s) from the GPT response, those column(s) will be included too.

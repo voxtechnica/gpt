@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"bufio"
 	"bytes"
 	"cmp"
 	"context"
@@ -344,6 +345,178 @@ func (c *Client) DeleteFile(ctx context.Context, id string) error {
 	return err
 }
 
+// CreateBatchRaw creates a new batch job. It returns the raw JSON response.
+func (c *Client) CreateBatchRaw(ctx context.Context, req BatchRequest) ([]byte, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("create batch job: %w", err)
+	}
+	httpReq, err := c.postRequest(ctx, "/batches", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create batch job: %w", err)
+	}
+	raw, err := c.sendRequest(httpReq)
+	if err != nil {
+		return raw, fmt.Errorf("create batch job: %w", err)
+	}
+	return raw, nil
+
+}
+
+// CreateBatch creates a new batch job.
+func (c *Client) CreateBatch(ctx context.Context, req BatchRequest) (Batch, error) {
+	var batch Batch
+	body, err := c.CreateBatchRaw(ctx, req)
+	if err != nil {
+		return batch, err
+	}
+	if err := json.Unmarshal(body, &batch); err != nil {
+		return batch, fmt.Errorf("create batch job: unmarshal response: %w", err)
+	}
+	return batch, nil
+}
+
+// ListBatchesRaw lists the currently available batch jobs, and provides basic information
+// about each one, including job status. It returns the raw JSON response.
+func (c *Client) ListBatchesRaw(ctx context.Context, limit int, after string) ([]byte, error) {
+	if limit < 1 {
+		limit = 100
+	}
+	path := fmt.Sprintf("/batches?limit=%d", limit)
+	if after != "" {
+		path += "&after=" + after
+	}
+	req, err := c.getRequest(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("list batch jobs: %w", err)
+	}
+	body, err := c.sendRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("list batch jobs: %w", err)
+	}
+	return body, nil
+}
+
+// ListBatches lists the currently available batch jobs, and provides basic information
+// about each one, including job status.
+func (c *Client) ListBatches(ctx context.Context, limit int, after string) ([]Batch, bool, string, error) {
+	var list BatchList
+
+	// Fetch the raw JSON response:
+	body, err := c.ListBatchesRaw(ctx, limit, after)
+	if err != nil {
+		return list.Data, list.HasMore, list.LastID, err
+	}
+	// Unmarshal the JSON response into a list of batches:
+	if err := json.Unmarshal(body, &list); err != nil {
+		return list.Data, list.HasMore, list.LastID, fmt.Errorf("list batch jobs: unmarshal response: %w", err)
+	}
+	return list.Data, list.HasMore, list.LastID, nil
+}
+
+// ReadBatchRaw reads the metatdata detail of the specified batch job. It returns the raw JSON response.
+func (c *Client) ReadBatchRaw(ctx context.Context, id string) ([]byte, error) {
+	req, err := c.getRequest(ctx, "/batches/"+id)
+	if err != nil {
+		return nil, fmt.Errorf("read batch job %s: %w", id, err)
+	}
+	body, err := c.sendRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("read batch job %s: %w", id, err)
+	}
+	return body, nil
+}
+
+// ReadBatch reads the metadata detail of the specified batch job.
+func (c *Client) ReadBatch(ctx context.Context, id string) (Batch, error) {
+	var batch Batch
+	body, err := c.ReadBatchRaw(ctx, id)
+	if err != nil {
+		return batch, err
+	}
+	if err := json.Unmarshal(body, &batch); err != nil {
+		return batch, fmt.Errorf("read batch job %s: unmarshal response: %w", id, err)
+	}
+	return batch, nil
+}
+
+// ReadBatchResponses reads the results of the specified batch job.
+func (c *Client) ReadBatchResponses(ctx context.Context, id string) (Batch, map[string]BatchResponseItem, error) {
+	// Read the batch and verify that results are available:
+	b, err := c.ReadBatch(ctx, id)
+	if err != nil {
+		return b, nil, err
+	}
+	if b.OutputFileID == "" && b.ErrorFileID == "" {
+		return b, nil, fmt.Errorf("batch %s status %s has no results", b.ID, b.Status)
+	}
+	responses := make(map[string]BatchResponseItem, b.RequestCounts.Total)
+
+	// Download the batch output results and read JSONL data:
+	if b.OutputFileID != "" {
+		outputBytes, err := c.DownloadFile(ctx, b.OutputFileID)
+		if err != nil {
+			return b, responses, fmt.Errorf("download batch output file %s: %w", b.OutputFileID, err)
+		}
+		var line int
+		scanner := bufio.NewScanner(bytes.NewReader(outputBytes))
+		for scanner.Scan() {
+			line++
+			var item BatchResponseItem
+			if err := json.Unmarshal(scanner.Bytes(), &item); err != nil {
+				return b, responses, fmt.Errorf("unmarshal batch output item %d: %w", line, err)
+			}
+			responses[item.CustomID] = item
+		}
+	}
+
+	// Download the batch error results and read JSONL data:
+	if b.ErrorFileID != "" {
+		errorBytes, err := c.DownloadFile(ctx, b.ErrorFileID)
+		if err != nil {
+			return b, responses, fmt.Errorf("download batch error file %s: %w", b.ErrorFileID, err)
+		}
+		var line int
+		scanner := bufio.NewScanner(bytes.NewReader(errorBytes))
+		for scanner.Scan() {
+			line++
+			var item BatchResponseItem
+			if err := json.Unmarshal(scanner.Bytes(), &item); err != nil {
+				return b, responses, fmt.Errorf("unmarshal batch output item %d: %w", line, err)
+			}
+			responses[item.CustomID] = item
+		}
+	}
+
+	return b, responses, nil
+}
+
+// CancelBatchRaw cancels the specified batch job. It returns the raw JSON response.
+func (c *Client) CancelBatchRaw(ctx context.Context, id string) ([]byte, error) {
+	req, err := c.postRequest(ctx, "/batches/"+id+"/cancel", nil)
+	if err != nil {
+		return nil, fmt.Errorf("cancel batch job %s: %w", id, err)
+	}
+	body, err := c.sendRequest(req)
+	if err != nil {
+		return body, fmt.Errorf("cancel batch job %s: %w", id, err)
+	}
+	return body, nil
+}
+
+// CancelBatch cancels the specified batch job.
+func (c *Client) CancelBatch(ctx context.Context, id string) (Batch, error) {
+	var batch Batch
+	raw, err := c.CancelBatchRaw(ctx, id)
+	if err != nil {
+		return batch, err
+	}
+	if err := json.Unmarshal(raw, &batch); err != nil {
+		return batch, fmt.Errorf("cancel batch job %s: unmarshal response: %w", id, err)
+	}
+	return batch, nil
+}
+
 // CreateFineTuneRaw creates a new fine-tuned model. It returns the raw JSON response.
 func (c *Client) CreateFineTuneRaw(ctx context.Context, req FineTuneRequest) ([]byte, error) {
 	body, err := json.Marshal(req)
@@ -377,9 +550,15 @@ func (c *Client) CreateFineTune(ctx context.Context, req FineTuneRequest) (FineT
 
 // ListFineTunesRaw lists the currently available fine-tuning jobs, and provides basic information
 // about each one, including job status events. It returns the raw JSON response.
-// TODO: support pagination parameters (after, limit)
-func (c *Client) ListFineTunesRaw(ctx context.Context) ([]byte, error) {
-	req, err := c.getRequest(ctx, "/fine_tuning/jobs")
+func (c *Client) ListFineTunesRaw(ctx context.Context, limit int, after string) ([]byte, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	path := fmt.Sprintf("/fine_tuning/jobs?limit=%d", limit)
+	if after != "" {
+		path += "&after=" + after
+	}
+	req, err := c.getRequest(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("list fine-tuning jobs: %w", err)
 	}
@@ -392,21 +571,18 @@ func (c *Client) ListFineTunesRaw(ctx context.Context) ([]byte, error) {
 
 // ListFineTunes lists the currently available fine-tuning jobs, and provides basic information
 // about each one, including job status events.
-func (c *Client) ListFineTunes(ctx context.Context) ([]FineTuneJob, error) {
+func (c *Client) ListFineTunes(ctx context.Context, limit int, after string) ([]FineTuneJob, bool, error) {
 	// Fetch the raw JSON response:
-	body, err := c.ListFineTunesRaw(ctx)
+	body, err := c.ListFineTunesRaw(ctx, limit, after)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	// Unmarshal the JSON response into a list of fine-tunes:
 	var list FineTuneJobs
 	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, fmt.Errorf("list fine-tuning jobs: unmarshal response: %w", err)
+		return nil, false, fmt.Errorf("list fine-tuning jobs: unmarshal response: %w", err)
 	}
-	fineTunes := list.Data
-	// Sort the fine-tunes by name or ID and return:
-	slices.SortFunc(fineTunes, func(a, b FineTuneJob) int { return cmp.Compare(a.Name(), b.Name()) })
-	return fineTunes, nil
+	return list.Data, list.HasMore, nil
 }
 
 // ReadFineTuneRaw reads the metatdata detail of the specified fine-tuning job. It returns the raw JSON response.
@@ -437,8 +613,15 @@ func (c *Client) ReadFineTune(ctx context.Context, id string) (FineTuneJob, erro
 
 // ListFineTuneEventsRaw lists the events for the specified fine-tuning job. It returns the raw JSON response.
 // TODO: support pagination parameters (after, limit)
-func (c *Client) ListFineTuneEventsRaw(ctx context.Context, id string) ([]byte, error) {
-	req, err := c.getRequest(ctx, "/fine_tuning/jobs/"+id+"/events")
+func (c *Client) ListFineTuneEventsRaw(ctx context.Context, id string, limit int, after string) ([]byte, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	path := fmt.Sprintf("/fine_tuning/jobs/%s/events?limit=%d", id, limit)
+	if after != "" {
+		path += "&after=" + after
+	}
+	req, err := c.getRequest(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("list fine-tuning job %s events: %w", id, err)
 	}
@@ -450,18 +633,18 @@ func (c *Client) ListFineTuneEventsRaw(ctx context.Context, id string) ([]byte, 
 }
 
 // ListFineTuneEvents lists the events for the specified fine-tuning job.
-func (c *Client) ListFineTuneEvents(ctx context.Context, id string) ([]FineTuneEvent, error) {
+func (c *Client) ListFineTuneEvents(ctx context.Context, id string, limit int, after string) ([]FineTuneEvent, bool, error) {
 	// Fetch the raw JSON response:
-	body, err := c.ListFineTuneEventsRaw(ctx, id)
+	body, err := c.ListFineTuneEventsRaw(ctx, id, limit, after)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	// Unmarshal the JSON response into a list of fine-tune events:
 	var list FineTuneEvents
 	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, fmt.Errorf("list fine-tuning job %s events: unmarshal response: %w", id, err)
+		return nil, false, fmt.Errorf("list fine-tuning job %s events: unmarshal response: %w", id, err)
 	}
-	return list.Data, nil
+	return list.Data, list.HasMore, nil
 }
 
 // CancelFineTuneRaw cancels the specified fine-tuning job. It returns the raw JSON response.

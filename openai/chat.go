@@ -75,12 +75,13 @@ func (c *ChatRequest) String() string {
 // ChatResponse provides a predicted text completion in response to a provided
 // prompt and other parameters.
 type ChatResponse struct {
-	ID        string          `json:"id"`      // eg. "chatcmpl-6p9XYPYSTTRi0xEviKjjilqrWU2Ve"
-	Object    string          `json:"object"`  // eg. "chat.completion"
-	CreatedAt int64           `json:"created"` // epoch seconds, eg. 1677966478
-	Model     string          `json:"model"`   // eg. "gpt-3.5-turbo"
-	Usage     Usage           `json:"usage"`
-	Choices   []MessageChoice `json:"choices"`
+	ID                string          `json:"id"`                 // eg. "chatcmpl-6p9XYPYSTTRi0xEviKjjilqrWU2Ve"
+	Object            string          `json:"object"`             // eg. "chat.completion"
+	CreatedAt         int64           `json:"created"`            // epoch seconds, eg. 1677966478
+	Model             string          `json:"model"`              // eg. "gpt-3.5-turbo"
+	SystemFingerprint string          `json:"system_fingerprint"` // eg. "fp_4008e3b719"
+	Usage             Usage           `json:"usage"`
+	Choices           []MessageChoice `json:"choices"`
 }
 
 // String provides a simple text display of the ChatResponse intended for console output.

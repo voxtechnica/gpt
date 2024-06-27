@@ -1,6 +1,6 @@
 Here is a piece of text: '{{answer}}'
 
-To what extent does are the following ideas explicitly reflected in this text? 
+To what extent are the following ideas explicitly reflected in this text? 
 A. coherence, comprehensibility, interpretation, or understanding
 B. purpose, direction, goals, aims, or a reason for being
 C. significance, value, mattering, importance, or impact

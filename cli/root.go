@@ -15,6 +15,7 @@ type RootCommand struct {
 	rootCmd   *cobra.Command
 	aboutCmd  *cobra.Command
 	docCmd    *cobra.Command
+	batchCmd  *BatchCommand
 	chatCmd   *ChatCommand
 	fileCmd   *FileCommand
 	modelCmd  *ModelCommand
@@ -31,7 +32,7 @@ func NewRootCommand(apiClient *openai.Client) *RootCommand {
 		Use:     "gpt",
 		Short:   "gpt: OpenAI GPT Command Line Tool",
 		Long:    "gpt is a command line tool for working with OpenAI GPT models",
-		Version: "0.1.0",
+		Version: "0.2.0",
 	}
 
 	// About Command
@@ -67,6 +68,7 @@ func NewRootCommand(apiClient *openai.Client) *RootCommand {
 	c.rootCmd.AddCommand(c.docCmd)
 
 	// Other Commands
+	c.batchCmd = NewBatchCommand(apiClient, c.rootCmd)
 	c.chatCmd = NewChatCommand(apiClient, c.rootCmd)
 	c.fileCmd = NewFileCommand(apiClient, c.rootCmd)
 	c.modelCmd = NewModelCommand(apiClient, c.rootCmd)

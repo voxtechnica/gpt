@@ -46,6 +46,8 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 		RunE:  c.list,
 	}
 	c.listCmd.Flags().BoolP("verbose", "v", false, "Verbose? (full JSON)")
+	c.listCmd.Flags().IntP("limit", "l", 20, "Limit")
+	c.listCmd.Flags().StringP("after", "a", "", "After (last ID received)")
 	c.baseCmd.AddCommand(c.listCmd)
 
 	// Read Command
@@ -67,6 +69,8 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 		RunE:  c.events,
 	}
 	c.eventsCmd.Flags().BoolP("verbose", "v", false, "Verbose? (full JSON)")
+	c.eventsCmd.Flags().IntP("limit", "l", 20, "Limit")
+	c.eventsCmd.Flags().StringP("after", "a", "", "After (last ID received)")
 	c.baseCmd.AddCommand(c.eventsCmd)
 
 	// Create Command
@@ -77,7 +81,7 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 		Args:  cobra.MinimumNArgs(1),
 		RunE:  c.create,
 	}
-	c.createCmd.Flags().StringP("base", "b", "gpt-3.5-turbo", "Base model (default: gpt-3.5-turbo)")
+	c.createCmd.Flags().StringP("base", "b", "gpt-3.5-turbo", "Base model to fine-tune")
 	c.createCmd.Flags().StringP("suffix", "s", "", "Name suffix for the fine-tuned model")
 	c.baseCmd.AddCommand(c.createCmd)
 
@@ -97,10 +101,13 @@ func NewTuneCommand(apiClient *openai.Client, root *cobra.Command) *TuneCommand 
 // list the fine-tuned models.
 func (c *TuneCommand) list(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
+	limit, _ := cmd.Flags().GetInt("limit")
+	after, _ := cmd.Flags().GetString("after")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 
 	// Retrieve the raw OpenAI response?
 	if c.raw {
-		body, e := c.apiClient.ListFineTunesRaw(ctx)
+		body, e := c.apiClient.ListFineTunesRaw(ctx, limit, after)
 		if body != nil {
 			fmt.Print(string(body))
 		}
@@ -111,16 +118,12 @@ func (c *TuneCommand) list(cmd *cobra.Command, args []string) error {
 	}
 
 	// Retrieve the fine-tuned models.
-	tunes, err := c.apiClient.ListFineTunes(ctx)
+	tunes, hasMore, err := c.apiClient.ListFineTunes(ctx, limit, after)
 	if err != nil {
 		return err
 	}
 
 	// Print the fine-tuned models.
-	verbose, err := cmd.Flags().GetBool("verbose")
-	if err != nil {
-		return err
-	}
 	if verbose {
 		j, err := json.MarshalIndent(tunes, "", "  ")
 		if err != nil {
@@ -131,6 +134,9 @@ func (c *TuneCommand) list(cmd *cobra.Command, args []string) error {
 		for _, tune := range tunes {
 			fmt.Println(tune.ID, tune.Status, tune.FineTunedModel)
 		}
+	}
+	if hasMore {
+		fmt.Println("More results available. Use --limit and --after to retrieve.")
 	}
 	return nil
 }
@@ -169,10 +175,13 @@ func (c *TuneCommand) read(cmd *cobra.Command, args []string) error {
 // events lists the events for a specified fine-tuned model.
 func (c *TuneCommand) events(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
+	limit, _ := cmd.Flags().GetInt("limit")
+	after, _ := cmd.Flags().GetString("after")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 
 	// Retrieve the raw OpenAI response?
 	if c.raw {
-		body, e := c.apiClient.ListFineTuneEventsRaw(ctx, args[0])
+		body, e := c.apiClient.ListFineTuneEventsRaw(ctx, args[0], limit, after)
 		if body != nil {
 			fmt.Print(string(body))
 		}
@@ -183,16 +192,12 @@ func (c *TuneCommand) events(cmd *cobra.Command, args []string) error {
 	}
 
 	// Retrieve the events.
-	events, err := c.apiClient.ListFineTuneEvents(ctx, args[0])
+	events, hasMore, err := c.apiClient.ListFineTuneEvents(ctx, args[0], limit, after)
 	if err != nil {
 		return err
 	}
 
 	// Print the events.
-	verbose, err := cmd.Flags().GetBool("verbose")
-	if err != nil {
-		return err
-	}
 	if verbose {
 		j, err := json.MarshalIndent(events, "", "  ")
 		if err != nil {
@@ -204,6 +209,9 @@ func (c *TuneCommand) events(cmd *cobra.Command, args []string) error {
 			t := time.Unix(event.CreatedAt, 0)
 			fmt.Println(t, event.Level, event.Message)
 		}
+	}
+	if hasMore {
+		fmt.Println("More results available. Use --limit and --after to retrieve.")
 	}
 	return nil
 }
