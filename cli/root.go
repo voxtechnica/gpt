@@ -32,7 +32,7 @@ func NewRootCommand(apiClient *openai.Client) *RootCommand {
 		Use:     "gpt",
 		Short:   "gpt: OpenAI GPT Command Line Tool",
 		Long:    "gpt is a command line tool for working with OpenAI GPT models",
-		Version: "0.2.0",
+		Version: "0.2.1",
 	}
 
 	// About Command

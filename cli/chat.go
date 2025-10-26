@@ -50,13 +50,13 @@ func NewChatCommand(apiClient *openai.Client, root *cobra.Command) *ChatCommand 
 		Short: "Complete a chat prompt",
 		Long:  "Complete a chat prompt.",
 	}
-	c.baseCmd.PersistentFlags().StringVarP(&c.model, "model", "m", "gpt-4o", "Model ID")
-	c.baseCmd.PersistentFlags().Float32VarP(&c.temperature, "temperature", "T", 0.5, "Temperature for sampling")
+	c.baseCmd.PersistentFlags().StringVarP(&c.model, "model", "m", "gpt-5", "Model ID")
+	c.baseCmd.PersistentFlags().Float32VarP(&c.temperature, "temperature", "T", 1.0, "Temperature for sampling")
 	c.baseCmd.PersistentFlags().IntVarP(&c.maxTokens, "max-tokens", "t", 0, "Maximum number of tokens to generate")
 	c.rootCmd.AddCommand(c.baseCmd)
 
 	// Prompt Command
-	// Example: gpt chat prompt examples/limerick.txt examples/system.txt -m gpt-4 -T 0.4 -t 256
+	// Example: gpt chat prompt examples/limerick.txt examples/system.txt -m gpt-5-mini -T 1.0 -t 256
 	c.promptCmd = &cobra.Command{
 		Use:   "prompt <promptFile> [systemFile]",
 		Short: "Chat complete a test prompt",
@@ -171,7 +171,7 @@ func (c *ChatCommand) prompt(cmd *cobra.Command, args []string) error {
 
 	// Generate and output a chat response:
 	chatID := tuid.NewID().String()
-	chat := psy.NewChat(chatID, prompt, system, c.model, c.temperature, c.maxTokens)
+	chat := psy.NewChat(chatID, system, prompt, c.model, c.temperature, c.maxTokens)
 	return c.generateChatResponse(ctx, chat, sel)
 }
 
